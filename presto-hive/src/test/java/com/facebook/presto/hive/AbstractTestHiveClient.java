@@ -147,7 +147,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
-import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
+import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -428,7 +428,7 @@ public abstract class AbstractTestHiveClient
         List<ColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
         List<HivePartition> partitions = ImmutableList.<HivePartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
-                        TupleDomain.<HiveColumnHandle>all(),
+                        TupleDomain.all(),
                         "ds=2012-12-29/file_format=textfile/dummy=1",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
@@ -437,7 +437,7 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         ImmutableList.of()))
                 .add(new HivePartition(tablePartitionFormat,
-                        TupleDomain.<HiveColumnHandle>all(),
+                        TupleDomain.all(),
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
@@ -446,7 +446,7 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         ImmutableList.of()))
                 .add(new HivePartition(tablePartitionFormat,
-                        TupleDomain.<HiveColumnHandle>all(),
+                        TupleDomain.all(),
                         "ds=2012-12-29/file_format=rctext/dummy=3",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
@@ -455,7 +455,7 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         ImmutableList.of()))
                 .add(new HivePartition(tablePartitionFormat,
-                        TupleDomain.<HiveColumnHandle>all(),
+                        TupleDomain.all(),
                         "ds=2012-12-29/file_format=rcbinary/dummy=4",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
@@ -516,7 +516,7 @@ public abstract class AbstractTestHiveClient
         }
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
-        metastoreClient = new CachingHiveMetastore(new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster)), executor, Duration.valueOf("1m"), Duration.valueOf("15s"));
+        metastoreClient = new CachingHiveMetastore(new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster)), executor, Duration.valueOf("1m"), Duration.valueOf("15s"), 10000);
         HiveConnectorId connectorId = new HiveConnectorId(connectorName);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
 
@@ -535,8 +535,8 @@ public abstract class AbstractTestHiveClient
                 true,
                 false,
                 true,
-                true,
                 HiveStorageFormat.RCBINARY,
+                1000,
                 typeManager,
                 locationService,
                 new TableParameterCodec(),
@@ -945,7 +945,6 @@ public abstract class AbstractTestHiveClient
             assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
             assertEquals(actualPartition.getTableName(), expectedPartition.getTableName());
             assertEquals(actualPartition.getBuckets(), expectedPartition.getBuckets());
-            assertEquals(actualPartition.getTupleDomain(), expectedPartition.getTupleDomain());
         }
     }
 
@@ -1537,7 +1536,7 @@ public abstract class AbstractTestHiveClient
                     new HiveClientConfig().setTimeZone(timeZone.getID()),
                     hdfsEnvironment,
                     ImmutableSet.of(new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment)),
-                    ImmutableSet.<HivePageSourceFactory>of(),
+                    ImmutableSet.of(),
                     TYPE_MANAGER);
 
             ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
@@ -1573,7 +1572,7 @@ public abstract class AbstractTestHiveClient
                     new HiveClientConfig().setTimeZone(timeZone.getID()),
                     hdfsEnvironment,
                     ImmutableSet.of(new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment)),
-                    ImmutableSet.<HivePageSourceFactory>of(),
+                    ImmutableSet.of(),
                     TYPE_MANAGER);
 
             ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
@@ -1992,7 +1991,8 @@ public abstract class AbstractTestHiveClient
                     .map(column -> new ColumnMetadata(
                             column.getName(),
                             column.getType(),
-                            annotateColumnComment(Optional.ofNullable(column.getComment()), partitionedBy.contains(column.getName())),
+                            column.getComment(),
+                            columnExtraInfo(partitionedBy.contains(column.getName())),
                             false))
                     .collect(toList());
             assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), expectedColumns);
@@ -2035,7 +2035,7 @@ public abstract class AbstractTestHiveClient
 
                 // verify the data
                 resultBuilder.rows(CREATE_TABLE_DATA.getMaterializedRows());
-                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.<ColumnHandle>all(), OptionalInt.empty(), Optional.empty());
+                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), resultBuilder.build().getMaterializedRows());
             }
         }
@@ -2717,8 +2717,8 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        List<Object> expected1 = ImmutableList.<Object>of("test abc", 0.1);
-                        List<Object> expected2 = ImmutableList.<Object>of("test xyz", 0.2);
+                        List<Object> expected1 = ImmutableList.of("test abc", 0.1);
+                        List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
                         assertEquals(row.getField(index), ImmutableList.of(expected1, expected2));
                     }
                 }
@@ -2730,8 +2730,8 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        List<Object> expected1 = ImmutableList.<Object>of("test abc", 0.1);
-                        List<Object> expected2 = ImmutableList.<Object>of("test xyz", 0.2);
+                        List<Object> expected1 = ImmutableList.of("test abc", 0.1);
+                        List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
                         assertEquals(row.getField(index), ImmutableMap.of(1, ImmutableList.of(expected1, expected2)));
                     }
                 }
@@ -2974,7 +2974,7 @@ public abstract class AbstractTestHiveClient
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);
         assertEquals(column.getType(), type, name);
-        assertEquals(column.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
+        assertEquals(column.getExtraInfo(), columnExtraInfo(partitionKey));
     }
 
     protected static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)

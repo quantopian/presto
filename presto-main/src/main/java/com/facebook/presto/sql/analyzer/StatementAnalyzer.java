@@ -40,21 +40,31 @@ import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Call;
+import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.sql.tree.DataDefinitionStatement;
+import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DropSchema;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -65,11 +75,18 @@ import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
+import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Revoke;
+import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -110,6 +127,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
@@ -364,37 +382,127 @@ class StatementAnalyzer
 
         validateColumns(node, queryScope.getRelationType());
 
-        return createScope(node, scope, queryScope.getRelationType());
-    }
-
-    @Override
-    protected Scope visitDataDefinitionStatement(DataDefinitionStatement node, Scope scope)
-    {
         return createScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitSetSession(SetSession node, Scope scope)
     {
-        return visitDataDefinitionStatement(node, scope);
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitResetSession(ResetSession node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitAddColumn(AddColumn node, Scope scope)
     {
-        return visitDataDefinitionStatement(node, scope);
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitCreateSchema(CreateSchema node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDropSchema(DropSchema node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRenameSchema(RenameSchema node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitCreateTable(CreateTable node, Scope scope)
     {
-        return visitDataDefinitionStatement(node, scope);
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDropTable(DropTable node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRenameTable(RenameTable node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRenameColumn(RenameColumn node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDropView(DropView node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitStartTransaction(StartTransaction node, Scope scope)
     {
-        return visitDataDefinitionStatement(node, scope);
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitCommit(Commit node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRollback(Rollback node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitPrepare(Prepare node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDeallocate(Deallocate node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitExecute(Execute node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitGrant(Grant node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRevoke(Revoke node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitCall(Call node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
     }
 
     private static void validateColumns(Statement node, RelationType descriptor)
@@ -872,11 +980,11 @@ class StatementAnalyzer
 
                     Expression leftExpression = null;
                     Expression rightExpression = null;
-                    if (firstDependencies.stream().allMatch(left.getRelationType().canResolvePredicate()) && secondDependencies.stream().allMatch(right.getRelationType().canResolvePredicate())) {
+                    if (firstDependencies.stream().allMatch(left.getRelationType()::canResolve) && secondDependencies.stream().allMatch(right.getRelationType()::canResolve)) {
                         leftExpression = conjunctFirst;
                         rightExpression = conjunctSecond;
                     }
-                    else if (firstDependencies.stream().allMatch(right.getRelationType().canResolvePredicate()) && secondDependencies.stream().allMatch(left.getRelationType().canResolvePredicate())) {
+                    else if (firstDependencies.stream().allMatch(right.getRelationType()::canResolve) && secondDependencies.stream().allMatch(left.getRelationType()::canResolve)) {
                         leftExpression = conjunctSecond;
                         rightExpression = conjunctFirst;
                     }
@@ -1122,37 +1230,11 @@ class StatementAnalyzer
         ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
 
         if (!items.isEmpty()) {
-            // Compute aliased output terms so we can resolve order by expressions against them first
-            ImmutableMultimap.Builder<QualifiedName, Expression> byAliasBuilder = ImmutableMultimap.builder();
-            for (SelectItem item : node.getSelect().getSelectItems()) {
-                if (item instanceof SingleColumn) {
-                    Optional<String> alias = ((SingleColumn) item).getAlias();
-                    if (alias.isPresent()) {
-                        byAliasBuilder.put(QualifiedName.of(alias.get()), ((SingleColumn) item).getExpression()); // TODO: need to know if alias was quoted
-                    }
-                }
-            }
-            Multimap<QualifiedName, Expression> byAlias = byAliasBuilder.build();
-
             for (SortItem item : items) {
                 Expression expression = item.getSortKey();
 
-                Expression orderByExpression = null;
-                if (expression instanceof QualifiedNameReference && !((QualifiedNameReference) expression).getName().getPrefix().isPresent()) {
-                    // if this is a simple name reference, try to resolve against output columns
-
-                    QualifiedName name = ((QualifiedNameReference) expression).getName();
-                    Collection<Expression> expressions = byAlias.get(name);
-                    if (expressions.size() > 1) {
-                        throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
-                    }
-                    if (expressions.size() == 1) {
-                        orderByExpression = Iterables.getOnlyElement(expressions);
-                    }
-
-                    // otherwise, couldn't resolve name against output aliases, so fall through...
-                }
-                else if (expression instanceof LongLiteral) {
+                Expression orderByExpression;
+                if (expression instanceof LongLiteral) {
                     // this is an ordinal in the output tuple
 
                     long ordinal = ((LongLiteral) expression).getValue();
@@ -1168,10 +1250,8 @@ class StatementAnalyzer
 
                     orderByExpression = outputExpressions.get(field);
                 }
-
-                // otherwise, just use the expression as is
-                if (orderByExpression == null) {
-                    orderByExpression = expression;
+                else {
+                    orderByExpression = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(extractNamedOutputExpressions(node)), expression);
                 }
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
@@ -1193,6 +1273,62 @@ class StatementAnalyzer
             throw new SemanticException(ORDER_BY_MUST_BE_IN_SELECT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
         }
         return orderByExpressions;
+    }
+
+    private static Multimap<QualifiedName, Expression> extractNamedOutputExpressions(QuerySpecification node)
+    {
+        // Compute aliased output terms so we can resolve order by expressions against them first
+        ImmutableMultimap.Builder<QualifiedName, Expression> assignments = ImmutableMultimap.builder();
+        for (SelectItem item : node.getSelect().getSelectItems()) {
+            if (item instanceof SingleColumn) {
+                SingleColumn column = (SingleColumn) item;
+                Optional<String> alias = column.getAlias();
+                if (alias.isPresent()) {
+                    assignments.put(QualifiedName.of(alias.get()), column.getExpression()); // TODO: need to know if alias was quoted
+                }
+                else if (column.getExpression() instanceof QualifiedNameReference) {
+                    assignments.put(((QualifiedNameReference) column.getExpression()).getName(), column.getExpression());
+                }
+            }
+        }
+
+        return assignments.build();
+    }
+
+    private static class OrderByExpressionRewriter
+            extends ExpressionRewriter<Void>
+    {
+        private final Multimap<QualifiedName, Expression> assignments;
+
+        public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments)
+        {
+            this.assignments = assignments;
+        }
+
+        @Override
+        public Expression rewriteQualifiedNameReference(QualifiedNameReference reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            if (reference.getName().getPrefix().isPresent()) {
+                return reference;
+            }
+
+            // if this is a simple name reference, try to resolve against output columns
+            QualifiedName name = reference.getName();
+            Set<Expression> expressions = assignments.get(name)
+                    .stream()
+                    .collect(Collectors.toSet());
+
+            if (expressions.size() > 1) {
+                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name.getSuffix());
+            }
+
+            if (expressions.size() == 1) {
+                return Iterables.getOnlyElement(expressions);
+            }
+
+            // otherwise, couldn't resolve name against output aliases, so fall through...
+            return reference;
+        }
     }
 
     private List<List<Expression>> analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
@@ -1478,7 +1614,7 @@ class StatementAnalyzer
             Expression expression,
             Set<Expression> columnReferences)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, scope, columnReferences, analysis.getParameters());
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, scope, columnReferences, analysis.getParameters(), analysis.isDescribe());
         analyzer.analyze(expression);
     }
 

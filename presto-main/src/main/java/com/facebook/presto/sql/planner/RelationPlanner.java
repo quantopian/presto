@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -46,10 +45,10 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -235,19 +234,29 @@ class RelationPlanner
                     continue;
                 }
 
-                if (conjunct instanceof ComparisonExpression) {
+                Set<QualifiedName> dependencies = DependencyExtractor.extractNames(conjunct, analysis.getColumnReferences());
+                boolean isJoinUsing = node.getCriteria().filter(JoinUsing.class::isInstance).isPresent();
+                if (!isJoinUsing && (dependencies.stream().allMatch(left::canResolve) || dependencies.stream().allMatch(right::canResolve))) {
+                    // If the conjunct can be evaluated entirely with the inputs on either side of the join, add
+                    // it to the list complex expressions and let the optimizers figure out how to push it down later.
+                    // Due to legacy reasons, the expression for "join using" looks like "x = x", which (incorrectly)
+                    // appears to fit the condition we're after. So we skip them.
+
+                    complexJoinExpressions.add(conjunct);
+                }
+                else if (conjunct instanceof ComparisonExpression) {
                     Expression firstExpression = ((ComparisonExpression) conjunct).getLeft();
                     Expression secondExpression = ((ComparisonExpression) conjunct).getRight();
                     ComparisonExpressionType comparisonType = ((ComparisonExpression) conjunct).getType();
                     Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(firstExpression, analysis.getColumnReferences());
                     Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(secondExpression, analysis.getColumnReferences());
 
-                    if (firstDependencies.stream().allMatch(left.canResolvePredicate()) && secondDependencies.stream().allMatch(right.canResolvePredicate())) {
+                    if (firstDependencies.stream().allMatch(left::canResolve) && secondDependencies.stream().allMatch(right::canResolve)) {
                         leftComparisonExpressions.add(firstExpression);
                         rightComparisonExpressions.add(secondExpression);
                         joinConditionComparisonTypes.add(comparisonType);
                     }
-                    else if (firstDependencies.stream().allMatch(right.canResolvePredicate()) && secondDependencies.stream().allMatch(left.canResolvePredicate())) {
+                    else if (firstDependencies.stream().allMatch(right::canResolve) && secondDependencies.stream().allMatch(left::canResolve)) {
                         leftComparisonExpressions.add(secondExpression);
                         rightComparisonExpressions.add(firstExpression);
                         joinConditionComparisonTypes.add(comparisonType.flip());
@@ -332,6 +341,7 @@ class RelationPlanner
             rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node);
 
             for (Expression expression : complexJoinExpressions) {
+                expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
                 postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
             }
             root = rootPlanBuilder.getRoot();
@@ -490,9 +500,9 @@ class RelationPlanner
         }
         Optional<Symbol> ordinalitySymbol = node.isWithOrdinality() ? Optional.of(unnestedSymbolsIterator.next()) : Optional.empty();
         checkState(!unnestedSymbolsIterator.hasNext(), "Not all output symbols were matched with input symbols");
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.<List<Expression>>of(values.build()));
+        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), argumentSymbols.build(), ImmutableList.of(values.build()));
 
-        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.<Symbol>of(), unnestSymbols.build(), ordinalitySymbol);
+        UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol);
         return new RelationPlan(unnestNode, scope, unnestedSymbols);
     }
 
@@ -640,9 +650,9 @@ class RelationPlanner
     {
         return new AggregationNode(idAllocator.getNextId(),
                 node,
-                ImmutableMap.<Symbol, FunctionCall>of(),
-                ImmutableMap.<Symbol, Signature>of(),
-                ImmutableMap.<Symbol, Symbol>of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
                 ImmutableList.of(node.getOutputSymbols()),
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
