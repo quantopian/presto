@@ -33,9 +33,20 @@ public class ServerSecurityModule
 
         SecurityConfig config = buildConfigObject(SecurityConfig.class);
         if (config.getAuthenticationEnabled()) {
+            Class<? extends Filter> filter = SpnegoFilter.class;
+            if (config.getAuthenticationFilterClassName() != null) {
+                String className = config.getAuthenticationFilterClassName();
+                try {
+                    filter = (Class<? extends Filter>) Class.forName(className);
+                }
+                catch (Exception e) {
+                    throw new RuntimeException("Failed to instantiate authentication class:" + className, e);
+                }
+            }
+
             Multibinder.newSetBinder(binder, Filter.class, TheServlet.class)
                     .addBinding()
-                    .to(SpnegoFilter.class)
+                    .to(filter)
                     .in(Scopes.SINGLETON);
         }
     }
