@@ -57,6 +57,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.Request.Builder.prepareHead;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -219,14 +220,16 @@ public class HeartbeatFailureDetector
 
     private static URI getHttpUri(ServiceDescriptor service)
     {
-        try {
-            String uri = service.getProperties().get("http");
-            if (uri != null) {
-                return new URI(uri);
+        for (String type : asList("http", "https")) {
+            try {
+                String uri = service.getProperties().get(type);
+                if (uri != null) {
+                    return new URI(uri);
+                }
             }
-        }
-        catch (URISyntaxException e) {
-            // ignore, not a valid http uri
+            catch (URISyntaxException e) {
+                // ignore, not a valid http uri
+            }
         }
 
         return null;
