@@ -20,6 +20,9 @@ import java.io.File;
 public class SecurityConfig
 {
     private boolean authenticationEnabled;
+    private String authenticationFilterClassName;
+    private boolean basicAuthHttpsOnly;
+    private String basicAuthCredsFile;
     private File kerberosConfig;
     private String serviceName;
     private File keytab;
@@ -45,6 +48,42 @@ public class SecurityConfig
     public SecurityConfig setAuthenticationEnabled(boolean enabled)
     {
         this.authenticationEnabled = enabled;
+        return this;
+    }
+
+    public String getAuthenticationFilterClassName()
+    {
+        return authenticationFilterClassName;
+    }
+
+    @Config("http.server.authentication.filter-class")
+    public SecurityConfig setAuthenticationFilterClassName(String className)
+    {
+        this.authenticationFilterClassName = className;
+        return this;
+    }
+
+    public boolean isBasicAuthHttpsOnly()
+    {
+        return basicAuthHttpsOnly;
+    }
+
+    @Config("http.server.authentication.basic.https-only")
+    public SecurityConfig setBasicAuthHttpsOnly(boolean httpsOnly)
+    {
+        this.basicAuthHttpsOnly = httpsOnly;
+        return this;
+    }
+
+    public String getBasicAuthCredentialsFile()
+    {
+        return basicAuthCredsFile;
+    }
+
+    @Config("http.server.authentication.basic.creds-file")
+    public SecurityConfig setBasicAuthCredentialsFile(String basicAuthCredsFile)
+    {
+        this.basicAuthCredsFile = basicAuthCredsFile;
         return this;
     }
 

@@ -28,6 +28,9 @@ public class TestSecurityConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SecurityConfig.class)
                 .setKerberosConfig(null)
                 .setAuthenticationEnabled(false)
+                .setAuthenticationFilterClassName(null)
+                .setBasicAuthHttpsOnly(false)
+                .setBasicAuthCredentialsFile(null)
                 .setServiceName(null)
                 .setKeytab(null));
     }
@@ -38,6 +41,9 @@ public class TestSecurityConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("http.authentication.krb5.config", "/etc/krb5.conf")
                 .put("http.server.authentication.enabled", "true")
+                .put("http.server.authentication.filter-class", "com.facebook.presto.server.security.SpnegoFilter")
+                .put("http.server.authentication.basic.https-only", "true")
+                .put("http.server.authentication.basic.creds-file", "/tmp/creds.properties")
                 .put("http.server.authentication.krb5.service-name", "airlift")
                 .put("http.server.authentication.krb5.keytab", "/tmp/presto.keytab")
                 .build();
@@ -45,6 +51,9 @@ public class TestSecurityConfig
         SecurityConfig expected = new SecurityConfig()
                 .setKerberosConfig(new File("/etc/krb5.conf"))
                 .setAuthenticationEnabled(true)
+                .setAuthenticationFilterClassName("com.facebook.presto.server.security.SpnegoFilter")
+                .setBasicAuthHttpsOnly(true)
+                .setBasicAuthCredentialsFile("/tmp/creds.properties")
                 .setServiceName("airlift")
                 .setKeytab(new File("/tmp/presto.keytab"));
 

@@ -51,10 +51,13 @@ public class QueryRunner
             Optional<String> kerberosPrincipal,
             Optional<String> kerberosRemoteServiceName,
             boolean authenticationEnabled,
-            KerberosConfig kerberosConfig)
+            KerberosConfig kerberosConfig,
+            Optional<String> basicAuthUser,
+            Optional<String> basicAuthPass)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.queryResultsCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
+
         this.httpClient = new JettyHttpClient(
                 getHttpClientConfig(
                         socksProxy,
@@ -64,7 +67,9 @@ public class QueryRunner
                         truststorePassword,
                         kerberosPrincipal,
                         kerberosRemoteServiceName,
-                        authenticationEnabled),
+                        authenticationEnabled,
+                        basicAuthUser,
+                        basicAuthPass),
                 kerberosConfig,
                 Optional.empty(),
                 ImmutableList.of());
@@ -106,7 +111,9 @@ public class QueryRunner
             Optional<String> kerberosPrincipal,
             Optional<String> kerberosRemoteServiceName,
             boolean authenticationEnabled,
-            KerberosConfig kerberosConfig)
+            KerberosConfig kerberosConfig,
+            Optional<String> basicAuthUser,
+            Optional<String> basicAuthPass)
     {
         return new QueryRunner(
                 session,
@@ -119,7 +126,9 @@ public class QueryRunner
                 kerberosPrincipal,
                 kerberosRemoteServiceName,
                 authenticationEnabled,
-                kerberosConfig);
+                kerberosConfig,
+                basicAuthUser,
+                basicAuthPass);
     }
 
     private static HttpClientConfig getHttpClientConfig(
@@ -130,7 +139,9 @@ public class QueryRunner
             Optional<String> truststorePassword,
             Optional<String> kerberosPrincipal,
             Optional<String> kerberosRemoteServiceName,
-            boolean authenticationEnabled)
+            boolean authenticationEnabled,
+            Optional<String> basicAuthUser,
+            Optional<String> basicAuthPass)
     {
         HttpClientConfig httpClientConfig = new HttpClientConfig()
                 .setConnectTimeout(new Duration(5, TimeUnit.SECONDS))
@@ -146,6 +157,8 @@ public class QueryRunner
         truststorePassword.ifPresent(httpClientConfig::setTrustStorePassword);
         kerberosPrincipal.ifPresent(httpClientConfig::setKerberosPrincipal);
         kerberosRemoteServiceName.ifPresent(httpClientConfig::setKerberosRemoteServiceName);
+        basicAuthUser.ifPresent(httpClientConfig::setBasicAuthUser);
+        basicAuthPass.ifPresent(httpClientConfig::setBasicAuthPass);
 
         return httpClientConfig;
     }

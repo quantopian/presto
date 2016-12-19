@@ -36,7 +36,9 @@ public class TestTableNameCompleter
                 Optional.empty(),
                 Optional.empty(),
                 false,
-                null);
+                null,
+                Optional.empty(),
+                Optional.empty());
         TableNameCompleter completer = new TableNameCompleter(runner);
         assertEquals(completer.complete("SELECT is_infi", 14, ImmutableList.of()), 7);
     }

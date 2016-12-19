@@ -133,7 +133,9 @@ public class Console
                 Optional.ofNullable(clientOptions.krb5Principal),
                 Optional.ofNullable(clientOptions.krb5RemoteServiceName),
                 clientOptions.authenticationEnabled,
-                kerberosConfig)) {
+                kerberosConfig,
+                Optional.ofNullable(clientOptions.user),
+                Optional.ofNullable(clientOptions.pass))) {
             if (hasQuery) {
                 executeCommand(queryRunner, query, clientOptions.outputFormat);
             }
