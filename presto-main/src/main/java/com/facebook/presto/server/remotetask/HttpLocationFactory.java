@@ -37,7 +37,8 @@ public class HttpLocationFactory
     @Inject
     public HttpLocationFactory(InternalNodeManager nodeManager, HttpServerInfo httpServerInfo)
     {
-        this(nodeManager, httpServerInfo.getHttpUri());
+        this(nodeManager, httpServerInfo.getHttpUri() != null ?
+                httpServerInfo.getHttpUri() : httpServerInfo.getHttpsUri());
     }
 
     public HttpLocationFactory(InternalNodeManager nodeManager, URI baseUri)
