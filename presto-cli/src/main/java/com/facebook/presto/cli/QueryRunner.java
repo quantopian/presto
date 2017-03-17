@@ -66,6 +66,8 @@ public class QueryRunner
                         keystorePassword,
                         truststorePath,
                         truststorePassword,
+                        user,
+                        password,
                         kerberosPrincipal,
                         kerberosRemoteServiceName,
                         authenticationEnabled),
@@ -136,6 +138,8 @@ public class QueryRunner
             Optional<String> keystorePassword,
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
+            Optional<String> user,
+            Optional<String> password,
             Optional<String> kerberosPrincipal,
             Optional<String> kerberosRemoteServiceName,
             boolean authenticationEnabled)
