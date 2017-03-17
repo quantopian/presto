@@ -156,6 +156,8 @@ public class QueryRunner
         keystorePassword.ifPresent(httpClientConfig::setKeyStorePassword);
         truststorePath.ifPresent(httpClientConfig::setTrustStorePath);
         truststorePassword.ifPresent(httpClientConfig::setTrustStorePassword);
+        user.ifPresent(httpClientConfig::setBasicAuthUser);
+        password.ifPresent(httpClientConfig::setBasicAuthPass);
         kerberosPrincipal.ifPresent(httpClientConfig::setKerberosPrincipal);
         kerberosRemoteServiceName.ifPresent(httpClientConfig::setKerberosRemoteServiceName);
 
